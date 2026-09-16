@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model Vendor {
+  id String @id @default(cuid())
+  code String @unique
+  name String
+  contact String?
+  approved Boolean @default(false)
+  createdAt DateTime @default(now())
+  parts Part[]
+}
+model Category {
+  id String @id @default(cuid())
+  code String @unique
+  name String
+  createdAt DateTime @default(now())
+  parts Part[]
+}
+model Part {
+  id String @id @default(cuid())
+  partNumber String @unique
+  partName String
+  vendorId String
+  categoryId String
+  sequence Int
+  archivedAt DateTime?
+  changes PartChange[]
+  updatedAt DateTime @updatedAt
+  labelPrinted Boolean @default(false)
+  createdAt DateTime @default(now())
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+  revisions Revision[]
+  @@index([partNumber])
+  @@index([vendorId, categoryId])
+}
+model Revision {
+  id String @id @default(cuid())
+  partId String
+  revisionNum Int
+  changeNote String
+  loggedBy String
+  loggedById String?
+  voided Boolean @default(false)
+  voidReason String?
+  createdAt DateTime @default(now())
+  part Part @relation(fields: [partId], references: [id])
+  @@unique([partId, revisionNum])
+  @@index([partId])
+}
+model User {
+  id String @id @default(cuid())
+  name String
+  pushSub String?
+  email String?
+  createdAt DateTime @default(now())
+}
+model Notification {
+  id String @id @default(cuid())
+  userId String
+  revisionId String
+  title String
+  url String
+  attempts Int @default(0)
+  deliveredAt DateTime?
+  lastFailure String?
+  createdAt DateTime @default(now())
+  @@unique([userId, revisionId])
+  @@index([deliveredAt, createdAt])
+}
+model LoginAttempt {
+  key String @id
+  count Int @default(1)
+  startedAt DateTime @default(now())
+}
+
+model PartChange {
+  id String @id @default(cuid())
+  partId String
+  before Json
+  after Json
+  loggedBy String
+  action String
+  createdAt DateTime @default(now())
+  part Part @relation(fields: [partId], references: [id])
+  @@index([partId, createdAt])
+}
