@@ -357,9 +357,9 @@ function Login({ onLogin }: { onLogin: () => void }) {
             const data = new FormData(e.currentTarget);
             try {
               await post("auth", {
-                name: data.get("name"),
+                name: "Owner",
                 code: data.get("code"),
-                email: data.get("email") || "",
+                email: "",
               });
               onLogin();
             } catch (e) {
@@ -372,40 +372,21 @@ function Login({ onLogin }: { onLogin: () => void }) {
           <span className="pill">
             <span className="online-dot" /> YOUR SHARED WORKSPACE
           </span>
-          <h2>Welcome to the workshop.</h2>
+          <h2>Unlock your inventory.</h2>
           <p>
-            Enter your name and the team’s access code.
+            Enter your personal access code.
             <br />
-            We’ll remember you on this device.
+            We’ll remember this device for 180 days.
           </p>
           {error && <Notice>{error}</Notice>}
-          <label className="field">
-            Your name
-            <input
-              name="name"
-              autoComplete="given-name"
-              placeholder="e.g. Sam"
-              required
-              maxLength={200}
-            />
-          </label>
           <label className="field">
             Access code
             <input
               name="code"
               type="password"
               autoComplete="current-password"
-              placeholder="Your team’s shared code"
+              placeholder="Your personal access code"
               required
-            />
-          </label>
-          <label className="field">
-            Email <span className="optional">optional</span>
-            <input
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="For revision notifications"
             />
           </label>
           <button className="button primary full" disabled={busy}>
@@ -414,7 +395,7 @@ function Login({ onLogin }: { onLogin: () => void }) {
           </button>
           <p className="form-footnote">
             <ShieldCheck size={15} />
-            Your name is recorded when you log a revision.
+            Add notification email later in Settings.
           </p>
         </form>
       </div>

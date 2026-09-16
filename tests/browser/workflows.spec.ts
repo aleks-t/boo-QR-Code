@@ -4,9 +4,6 @@ import { PNG } from "pngjs";
 import jsQR from "jsqr";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Your name").fill("Browser verification");
-  await page.getByLabel("Access code").fill("workshop-local");
-  await page.getByRole("button", { name: "Enter workshop" }).click();
   await expect(
     page.getByRole("heading", { name: "Know the part. Know what changed." }),
   ).toBeVisible();

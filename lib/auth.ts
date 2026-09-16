@@ -4,6 +4,12 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { db } from "./db";
 import { AppError } from "./domain";
 const cookieName = "partbook_session";
+const owner = () =>
+  db.user.upsert({
+    where: { id: "owner" },
+    create: { id: "owner", name: "Owner" },
+    update: {},
+  });
 function key() {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32)
@@ -15,7 +21,9 @@ function key() {
 }
 export async function getUser() {
   const token = (await cookies()).get(cookieName)?.value;
-  if (!token) return null;
+  if (!token) {
+    return owner();
+  }
   try {
     const { payload } = await jwtVerify(token, key(), {
       algorithms: ["HS256"],
@@ -24,7 +32,7 @@ export async function getUser() {
       ? await db.user.findUnique({ where: { id: payload.sub } })
       : null;
   } catch {
-    return null;
+    return owner();
   }
 }
 export async function requireUser() {

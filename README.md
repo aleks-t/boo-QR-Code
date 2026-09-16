@@ -18,7 +18,7 @@ PostgreSQL is the shared online source of truth. There is no Google Sheet to kee
 
 ## Local development
 
-Node.js 22+ is recommended. Copy `.env.example` to `.env` and set an access code and a random session secret (at least 32 characters).
+Node.js 22+ is recommended. Copy `.env.example` to `.env` and set `DATABASE_URL`. This is a single-owner installation, so there is no login screen or access-code prompt.
 
 ```sh
 npm ci
@@ -33,7 +33,7 @@ npm run db:seed
 npm run dev
 ```
 
-Open http://localhost:3000 and use the access code from your `.env`. The seed creates three vendors, four categories, and five example parts, and is safe to rerun. Do not seed example parts into an existing production inventory unless you want them there.
+Open http://localhost:3000. The seed creates three vendors, four categories, and five example parts, and is safe to rerun. Do not seed example parts into an existing production inventory unless you want them there.
 
 For an existing PostgreSQL server, set `DATABASE_URL` and skip `db:local`.
 
@@ -42,12 +42,12 @@ For an existing PostgreSQL server, set `DATABASE_URL` and skip `db:local`.
 1. Create a Railway project and add a PostgreSQL service.
 2. Add a service from this GitHub repository.
 3. Set `DATABASE_URL` on the app service to `${{Postgres.DATABASE_URL}}` (use your actual Postgres service name).
-4. Set a strong `ACCESS_CODE` shared with your team and a random `SESSION_SECRET` of at least 32 characters.
+4. Set `APP_URL` to the app’s HTTPS address. Login is intentionally disabled for this single-owner installation.
 5. Generate a Railway public HTTPS domain. Set `APP_URL` to that exact origin, e.g. `https://your-app.up.railway.app`, then redeploy.
 6. Railway reads `railway.json`: it builds the app, runs `prisma migrate deploy` as the pre-deploy command, starts Next.js, and checks `/api/health`.
 7. Add vendors/categories through **New part**. For a new demo database only, run `npm run db:seed` against that database.
 
-Do not publish `.env`, database files, or access codes. `.gitignore` excludes them. `SESSION_SECRET` signs long-lived HttpOnly cookies; `ACCESS_CODE` alone is not a signing secret.
+Do not publish `.env` or database files. `.gitignore` excludes them. The QR resolver and all inventory writes are connected directly to the Railway PostgreSQL database.
 
 ## Notifications
 
@@ -75,7 +75,7 @@ An external scheduler can optionally POST `/api/notifications/retry` with `Autho
 
 Users must enable push or supply an email address to receive notifications. The UI reports unconfigured delivery, rather than pretending it sent an update. Email entry is optional at login and editable in Settings. On iPhone, push requires Safari → Share → Add to Home Screen → Add. The app explains this once; its notification permission prompt starts on a second browser session.
 
-Shared access code authentication intentionally has no accounts or roles. All signed-in people can edit, restore, and approve vendors. Each new sign-in creates a named session identity; a display name is never treated as a credential for recovering someone else's profile.
+This installation intentionally has one owner record (`Owner`) and no login flow. Anyone with the private Railway URL can edit, restore, approve vendors, and log revisions. Add a network access control layer later if the URL must be private.
 
 ## Identity and recovery guarantees
 
