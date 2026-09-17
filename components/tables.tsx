@@ -254,7 +254,9 @@ function PartsTable({
             />
             <datalist id="part-search-suggestions">
               {(data?.parts ?? []).slice(0, 10).map((part) => (
-                <option key={part.id} value={part.partName}>{part.partNumber}</option>
+                <option key={part.id} value={part.partName}>
+                  {part.partNumber}
+                </option>
               ))}
             </datalist>
             {q && (

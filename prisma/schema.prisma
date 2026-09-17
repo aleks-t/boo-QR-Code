@@ -30,6 +30,7 @@ model Part {
   sequence Int
   archivedAt DateTime?
   changes PartChange[]
+  samples Sample[]
   updatedAt DateTime @updatedAt
   labelPrinted Boolean @default(false)
   createdAt DateTime @default(now())
@@ -38,6 +39,40 @@ model Part {
   revisions Revision[]
   @@index([partNumber])
   @@index([vendorId, categoryId])
+}
+
+enum SampleStatus {
+  IN_HOUSE
+  SENT_OUT
+  PASSED
+  FAILED
+  SENT_BACK
+}
+
+model Sample {
+  id String @id @default(cuid())
+  partId String
+  sampleNumber Int
+  status SampleStatus @default(IN_HOUSE)
+  note String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  part Part @relation(fields: [partId], references: [id])
+  events SampleEvent[]
+  @@unique([partId, sampleNumber])
+  @@index([partId, status])
+}
+
+model SampleEvent {
+  id String @id @default(cuid())
+  sampleId String
+  status SampleStatus
+  note String?
+  revisionNum Int?
+  loggedBy String
+  createdAt DateTime @default(now())
+  sample Sample @relation(fields: [sampleId], references: [id])
+  @@index([sampleId, createdAt])
 }
 model Revision {
   id String @id @default(cuid())

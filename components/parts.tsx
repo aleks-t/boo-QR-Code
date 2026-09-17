@@ -92,6 +92,7 @@ export function NewPart({ vendors, categories, reload }: Shared) {
   const [vendor, setVendor] = useState(""),
     [category, setCategory] = useState(""),
     [name, setName] = useState(""),
+    [sampleCount, setSampleCount] = useState("1"),
     [note, setNote] = useState(""),
     [adding, setAdding] = useState<"vendor" | "category" | null>(null),
     [localV, setLocalV] = useState<Vendor[]>([]),
@@ -141,6 +142,7 @@ export function NewPart({ vendors, categories, reload }: Shared) {
               vendorId: vendor,
               partName: name,
               categoryId: category,
+              sampleCount: Number(sampleCount),
               ...(note.trim() ? { changeNote: note } : {}),
             });
             sessionStorage.setItem(`created:${part.partNumber}`, "true");
@@ -208,6 +210,11 @@ export function NewPart({ vendors, categories, reload }: Shared) {
           onAdd={() => setAdding("category")}
           required
         />
+        <label className="field">
+          How many samples? <span className="optional">optional</span>
+          <input type="number" min={1} max={100} inputMode="numeric" value={sampleCount} onChange={(e) => setSampleCount(e.target.value)} />
+          <small className="field-help">Track each physical sample separately when you have more than one.</small>
+        </label>
         <details className="optional-note">
           <summary>
             Add an initial change note <span>optional</span>
@@ -594,6 +601,13 @@ export function PartDetail({
           ))}
         </div>
       </details>
+      <SamplesPanel
+        part={part}
+        onChange={(updated) => {
+          setPart(updated);
+          reload();
+        }}
+      />
       <details className="panel history-panel">
         <summary>
           <span>
@@ -773,6 +787,110 @@ export function PartDetail({
     </div>
   );
 }
+function SamplesPanel({
+  part,
+  onChange,
+}: {
+  part: Part;
+  onChange: (part: Part) => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const labels: Record<string, string> = {
+    IN_HOUSE: "In house",
+    SENT_OUT: "Sent out",
+    PASSED: "Passed",
+    FAILED: "Failed",
+    SENT_BACK: "Sent back",
+  };
+  return (
+    <section className="panel samples-panel">
+      <div className="section-heading">
+        <h2>
+          Samples <small>{part.samples.length} tracked</small>
+        </h2>
+        <span className="subtle-badge">OPTIONAL TRACKING</span>
+      </div>
+      <p className="muted sample-help">
+        These are separate physical samples of the same part. Update one when it
+        is sent out, passes, fails, or comes back.
+      </p>
+      <div className="samples-list">
+        {part.samples.map((sample) => (
+          <div className="sample-row" key={sample.id}>
+            <span className="sample-number">Sample {sample.sampleNumber}</span>
+            <select
+              aria-label={`Status for sample ${sample.sampleNumber}`}
+              value={sample.status}
+              disabled={busy === sample.id || !!part.archivedAt}
+              onChange={async (e) => {
+                setBusy(sample.id);
+                try {
+                  const updated = await api<Part>(`samples/${sample.id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({
+                      status: e.target.value,
+                      note: sample.note || undefined,
+                    }),
+                  });
+                  onChange({
+                    ...part,
+                    samples: part.samples.map((s) =>
+                      s.id === sample.id ? { ...s, ...updated } : s,
+                    ),
+                  });
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            >
+              {Object.entries(labels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label={`Note for sample ${sample.sampleNumber}`}
+              placeholder="Optional note"
+              defaultValue={sample.note || ""}
+              disabled={!!part.archivedAt}
+              onBlur={async (e) => {
+                const value = e.target.value.trim();
+                if (value === (sample.note || "")) return;
+                setBusy(sample.id);
+                try {
+                  const updated = await api<Part>(`samples/${sample.id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({
+                      status: sample.status,
+                      note: value,
+                    }),
+                  });
+                  onChange({
+                    ...part,
+                    samples: part.samples.map((s) =>
+                      s.id === sample.id ? { ...s, ...updated } : s,
+                    ),
+                  });
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            />
+            {sample.events?.find((event) => event.status === "SENT_BACK") && (
+              <small className="sample-event">
+                Sent back at V
+                {sample.events.find((event) => event.status === "SENT_BACK")
+                  ?.revisionNum ?? "—"}
+              </small>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function RevisionForm({
   number,
   reload,

@@ -29,9 +29,26 @@ export type Change = {
   action: string;
   createdAt: string;
 };
+export type SampleEvent = {
+  id: string;
+  status: "IN_HOUSE" | "SENT_OUT" | "PASSED" | "FAILED" | "SENT_BACK";
+  note: string | null;
+  revisionNum: number | null;
+  loggedBy: string;
+  createdAt: string;
+};
+export type Sample = {
+  id: string;
+  sampleNumber: number;
+  status: SampleEvent["status"];
+  note: string | null;
+  updatedAt: string;
+  events: SampleEvent[];
+};
 export type Part = {
   archivedAt: string | null;
   changes: Change[];
+  samples: Sample[];
   id: string;
   partNumber: string;
   partName: string;

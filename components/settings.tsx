@@ -11,6 +11,7 @@ import {
   Share,
   ShieldCheck,
   Smartphone,
+  Trash2,
   X,
 } from "lucide-react";
 import { api, post, Session, Vendor } from "@/lib/types";
@@ -99,6 +100,7 @@ export function Vendors({ vendors, reload }: Shared) {
                   <Merge size={15} />
                   Merge
                 </button>
+                {(v._count?.parts || 0) === 0 && <button className="icon-button danger-icon" title="Delete vendor" aria-label={`Delete ${v.name}`} onClick={async () => { if (!window.confirm(`Delete ${v.name}?`)) return; try { await api(`vendors/${v.id}`, { method: "DELETE" }); setToast(`${v.name} was deleted.`); reload(); } catch (e) { setError((e as Error).message); } }}><Trash2 size={16} /></button>}
                 <button
                   className="button primary small"
                   disabled={busy}
@@ -146,6 +148,7 @@ export function Vendors({ vendors, reload }: Shared) {
               <Check size={13} />
               Approved
             </span>
+            {(v._count?.parts || 0) === 0 && <button className="icon-button danger-icon" title="Delete vendor" aria-label={`Delete ${v.name}`} onClick={async () => { if (!window.confirm(`Delete ${v.name}?`)) return; try { await api(`vendors/${v.id}`, { method: "DELETE" }); setToast(`${v.name} was deleted.`); reload(); } catch (e) { setError((e as Error).message); } }}><Trash2 size={16} /></button>}
           </div>
         ))}
       </section>

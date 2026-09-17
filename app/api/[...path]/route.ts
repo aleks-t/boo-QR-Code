@@ -52,6 +52,13 @@ async function handle(
       await db.$queryRaw`SELECT 1`;
       return NextResponse.json({ ok: true });
     }
+    if (path[0] === "vendors" && path.length === 2 && method === "DELETE") {
+      const vendor = await db.vendor.findUnique({ where: { id: path[1] }, include: { _count: { select: { parts: true } } } });
+      if (!vendor) throw new AppError("This vendor could not be found.", 404);
+      if (vendor._count.parts > 0) throw new AppError("This vendor has parts attached. Merge it into another vendor instead so their IDs and history stay valid.", 409);
+      await db.vendor.delete({ where: { id: vendor.id } });
+      return NextResponse.json({ ok: true });
+    }
     if (route === "auth" && method === "POST") {
       const input = z
         .object({ code: z.string().min(1).max(500), name: text, email })
@@ -194,10 +201,56 @@ async function handle(
     }
     if (route === "parts" && method === "POST") {
       const input = z
-        .object({ ...partFields, changeNote: note.optional() })
+        .object({
+          ...partFields,
+          changeNote: note.optional(),
+          sampleCount: z.coerce.number().int().min(1).max(100).default(1),
+        })
         .strict()
         .parse(await body(req));
       return NextResponse.json(await createPart(input, user), { status: 201 });
+    }
+    if (path[0] === "samples" && path.length === 2 && method === "PATCH") {
+      const input = z
+        .object({
+          status: z.enum([
+            "IN_HOUSE",
+            "SENT_OUT",
+            "PASSED",
+            "FAILED",
+            "SENT_BACK",
+          ]),
+          note: z.string().trim().max(4000).optional(),
+        })
+        .strict()
+        .parse(await body(req));
+      const result = await db.$transaction(async (tx) => {
+        const sample = await tx.sample.findUnique({
+          where: { id: path[1] },
+          include: { part: { include: { revisions: true } } },
+        });
+        if (!sample) throw new AppError("This sample could not be found.", 404);
+        const current =
+          sample.part.revisions
+            .filter((r) => !r.voided)
+            .sort((a, b) => b.revisionNum - a.revisionNum)[0]?.revisionNum ??
+          null;
+        await tx.sample.update({
+          where: { id: sample.id },
+          data: { status: input.status, note: input.note || null },
+        });
+        await tx.sampleEvent.create({
+          data: {
+            sampleId: sample.id,
+            status: input.status,
+            note: input.note || null,
+            revisionNum: current,
+            loggedBy: user.name,
+          },
+        });
+        return tx.sample.findUniqueOrThrow({ where: { id: sample.id }, include: { events: { orderBy: { createdAt: "desc" } } } });
+      });
+      return NextResponse.json(result);
     }
     if (path[0] === "parts" && path.length === 2 && method === "GET")
       return NextResponse.json(await findPart(path[1]));

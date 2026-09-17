@@ -2,6 +2,10 @@ import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { AppError, currentRevision, resolveCode } from "./domain";
 export const partInclude = {
+  samples: {
+    include: { events: { orderBy: { createdAt: "desc" as const } } },
+    orderBy: { sampleNumber: "asc" as const },
+  },
   changes: { orderBy: { createdAt: "desc" as const } },
   vendor: true,
   category: true,
@@ -48,6 +52,7 @@ export async function createPart(
     vendorId: string;
     categoryId: string;
     changeNote?: string;
+    sampleCount?: number;
   },
   user: { id: string; name: string },
 ) {
@@ -74,6 +79,21 @@ export async function createPart(
             categoryId: input.categoryId,
             sequence,
             partNumber: `${vendor.code}-${String(sequence).padStart(4, "0")}`,
+            samples: {
+              create: Array.from(
+                { length: input.sampleCount ?? 1 },
+                (_, i) => ({
+                  sampleNumber: i + 1,
+                  events: {
+                    create: {
+                      status: "IN_HOUSE",
+                      loggedBy: user.name,
+                      note: "Sample created.",
+                    },
+                  },
+                }),
+              ),
+            },
             revisions: {
               create: {
                 revisionNum: 1,
