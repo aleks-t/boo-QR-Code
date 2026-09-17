@@ -96,3 +96,27 @@ export function date(value: string) {
     year: "numeric",
   });
 }
+// iOS Safari doesn't save `<a download>` blob links to disk — it opens a
+// preview instead. The share sheet's "Save Image"/"Save to Files" does, so
+// prefer it when available. Returns false only if the user cancelled it.
+export async function saveFile(blob: Blob, filename: string) {
+  const file = new File([blob], filename, { type: blob.type });
+  const nav = navigator as Navigator & {
+    canShare?: (data: { files: File[] }) => boolean;
+  };
+  if (nav.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return true;
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return false;
+    }
+  }
+  const url = URL.createObjectURL(blob),
+    a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return true;
+}

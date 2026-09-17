@@ -20,7 +20,16 @@ import {
   Tag,
   Trash2,
 } from "lucide-react";
-import { api, post, Part, Revision, Vendor, Category, date } from "@/lib/types";
+import {
+  api,
+  post,
+  saveFile,
+  Part,
+  Revision,
+  Vendor,
+  Category,
+  date,
+} from "@/lib/types";
 import { similarCode } from "@/lib/domain";
 import { Combo, Modal, Notice, Spinner } from "./ui";
 import { EditPart, Shared } from "./tables";
@@ -1121,15 +1130,12 @@ export function PrintLabel({
         `/api/parts/${encodeURIComponent(part.partNumber)}/qr`,
       );
       if (!res.ok) throw new Error((await res.json()).message);
-      const url = URL.createObjectURL(await res.blob()),
-        a = document.createElement("a");
-      a.href = url;
-      a.download = `${part.partNumber}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      await post("export/printed", { ids: [part.id] });
-      setMarked(true);
-      reload();
+      const saved = await saveFile(await res.blob(), `${part.partNumber}.png`);
+      if (saved) {
+        await post("export/printed", { ids: [part.id] });
+        setMarked(true);
+        reload();
+      }
     } catch (e) {
       setFailure((e as Error).message);
     } finally {

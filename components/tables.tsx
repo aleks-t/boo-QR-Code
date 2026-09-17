@@ -19,7 +19,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { api, post, Part, Vendor, Category, date } from "@/lib/types";
+import { api, post, saveFile, Part, Vendor, Category, date } from "@/lib/types";
 import { Combo, Modal, Notice, Spinner } from "./ui";
 export type Shared = {
   vendors: Vendor[];
@@ -131,19 +131,17 @@ function PartsTable({
         body: JSON.stringify({ ids: [...selected] }),
       });
       if (!res.ok) throw new Error((await res.json()).message);
-      const blob = await res.blob(),
-        url = URL.createObjectURL(blob),
-        a = document.createElement("a");
-      a.href = url;
-      a.download =
-        type === "csv" ? "partbook-labels.csv" : "partbook-qr-labels.zip";
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      setToast(
-        `Exported ${selected.size} ${selected.size === 1 ? "part" : "parts"}. ${type === "csv" ? "Your CSV is ready for Print Master." : "Your QR images are ready."}`,
+      const saved = await saveFile(
+        await res.blob(),
+        type === "csv" ? "partbook-labels.csv" : "partbook-qr-labels.zip",
       );
-      setSelected(new Set());
-      reload();
+      if (saved) {
+        setToast(
+          `Exported ${selected.size} ${selected.size === 1 ? "part" : "parts"}. ${type === "csv" ? "Your CSV is ready for Print Master." : "Your QR images are ready."}`,
+        );
+        setSelected(new Set());
+        reload();
+      }
     } catch (e) {
       setActionError((e as Error).message);
     } finally {

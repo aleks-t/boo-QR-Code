@@ -1512,10 +1512,10 @@ summary:focus-visible {
   }
   .sample-row input {
     grid-column: 1 / -1;
-    font-size: 14px;
+    font-size: 16px;
   }
   .sample-row select {
-    font-size: 14px;
+    font-size: 16px;
   }
   .sample-event {
     grid-column: 1 / -1;
@@ -2603,11 +2603,7 @@ summary:focus-visible {
     padding: 16px;
     gap: 9px;
   }
-  .search-field input {
-    font-size: 12px;
-  }
   .table-toolbar select {
-    font-size: 11px;
     min-height: 44px;
     width: calc(50% - 6px);
   }
