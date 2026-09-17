@@ -13,6 +13,10 @@
 * {
   box-sizing: border-box;
 }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 body {
   margin: 0;
   background: var(--bg);
@@ -1490,6 +1494,12 @@ summary:focus-visible {
   white-space: nowrap;
 }
 @media (max-width: 760px) {
+  .search-field input,
+  .table-toolbar select,
+  .combo-search input,
+  .combo-trigger {
+    font-size: 16px;
+  }
   .samples-panel {
     padding: 18px 16px;
   }
