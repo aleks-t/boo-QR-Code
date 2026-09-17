@@ -96,6 +96,7 @@ export function NewPart({ vendors, categories, reload }: Shared) {
     [adding, setAdding] = useState<"vendor" | "category" | null>(null),
     [localV, setLocalV] = useState<Vendor[]>([]),
     [localC, setLocalC] = useState<Category[]>([]),
+    [matches, setMatches] = useState<Part[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const allV = [
@@ -106,6 +107,19 @@ export function NewPart({ vendors, categories, reload }: Shared) {
       ...categories,
       ...localC.filter((c) => !categories.some((x) => x.id === c.id)),
     ];
+  useEffect(() => {
+    const query = name.trim();
+    if (query.length < 2) {
+      setMatches([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      api<{ parts: Part[] }>(`parts?q=${encodeURIComponent(query)}`)
+        .then((result) => setMatches(result.parts.slice(0, 5)))
+        .catch(() => setMatches([]));
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [name]);
   return (
     <div className="narrow-page">
       <Back />
@@ -148,7 +162,7 @@ export function NewPart({ vendors, categories, reload }: Shared) {
           onAdd={() => setAdding("vendor")}
           required
         />
-        <label className="field">
+        <label className="field name-autocomplete">
           Part name <span className="required">*</span>
           <input
             placeholder="e.g. Mounting bracket"
@@ -158,6 +172,20 @@ export function NewPart({ vendors, categories, reload }: Shared) {
             maxLength={200}
             autoComplete="off"
           />
+          {matches.length > 0 && (
+            <div className="duplicate-warning duplicate-part-warning">
+              <strong>That part may already be in your inventory.</strong>
+              <p>Choose the existing part to log a new revision, or continue creating another part.</p>
+              <div className="part-suggestions">
+                {matches.map((match) => (
+                  <button type="button" className="part-suggestion" key={match.id} onClick={() => router.push(`/parts/${match.partNumber}`)}>
+                    <span><strong>{match.partName}</strong><small className="mono">{match.partNumber}</small></span>
+                    <span className="version-badge">{match.current ? `V${match.current.revisionNum}` : "—"}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </label>
         <Combo
           label="Category"

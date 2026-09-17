@@ -247,10 +247,16 @@ function PartsTable({
             <Search size={18} />
             <input
               aria-label="Search parts"
+              list="part-search-suggestions"
               placeholder="Search part names or numbers…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
+            <datalist id="part-search-suggestions">
+              {(data?.parts ?? []).slice(0, 10).map((part) => (
+                <option key={part.id} value={part.partName}>{part.partNumber}</option>
+              ))}
+            </datalist>
             {q && (
               <button
                 className="icon-button"

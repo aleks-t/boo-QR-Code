@@ -1439,6 +1439,35 @@ summary:focus-visible {
   font-size: 12px;
   color: #97773f;
 }
+.duplicate-part-warning {
+  margin-top: -10px;
+  margin-bottom: 20px;
+}
+.duplicate-part-warning p {
+  font-size: 11px;
+  margin-top: 6px;
+  line-height: 1.6;
+}
+.part-suggestions {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.part-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  padding: 9px 10px;
+  min-height: 48px;
+  border-radius: 7px;
+  background: #fff;
+  border: 1px solid #eadfcf;
+}
+.part-suggestion:hover { background: #f7f1e5; }
+.part-suggestion strong { display: block; font-size: 11px; }
+.part-suggestion small { display: block; color: #8c9a90; font-size: 9px; margin-top: 3px; }
 .duplicate-warning strong {
   font-weight: 500;
 }
