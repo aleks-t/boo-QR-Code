@@ -290,7 +290,7 @@ export default function Partbook() {
         </footer>
       </div>
       <nav className="mobile-bottom">
-        {nav.slice(0, 3).map((n) => (
+        {[nav[1], { href: "/new", label: "New part", icon: Plus }, nav[2], nav[0]].map((n) => (
           <Link
             key={n.href}
             href={n.href}
@@ -300,10 +300,6 @@ export default function Partbook() {
             {n.label}
           </Link>
         ))}
-        <Link href="/new" className={path === "/new" ? "active" : ""}>
-          <Plus size={21} />
-          New part
-        </Link>
       </nav>
     </div>
   );
@@ -428,9 +424,9 @@ function ScanHome({
           </h1>
           <p>The latest revision is one scan away.</p>
         </div>
-        <Link href="/new" className="button primary">
-          <Plus size={18} />
-          New part
+        <Link href="#scan" className="button primary">
+          <ScanLine size={18} />
+          Scan part
         </Link>
       </div>
       <div className="stats-grid">
@@ -459,7 +455,7 @@ function ScanHome({
         />
       </div>
       <div className="scan-layout">
-        <section className="panel scan-panel">
+        <section id="scan" className="panel scan-panel">
           <div className="panel-heading">
             <span className="section-icon">
               <ScanLine size={20} />
