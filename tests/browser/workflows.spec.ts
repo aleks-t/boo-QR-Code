@@ -22,7 +22,13 @@ test("new part → revision → undo → edit → delete → restore → export"
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
-  await page.goto("/new");
+  await expect(
+    page.getByRole("button", { name: "Scan part", exact: true }),
+  ).toHaveCount(1);
+  await page
+    .locator(".topbar")
+    .getByRole("link", { name: "New part", exact: true })
+    .click();
   await page.getByRole("button", { name: "Vendor", exact: true }).click();
   await page.getByRole("textbox", { name: "Search vendor" }).fill("Acme");
   await page.getByRole("option", { name: /Acme Manufacturing/ }).click();

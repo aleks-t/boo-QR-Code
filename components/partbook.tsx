@@ -267,10 +267,17 @@ export default function Partbook() {
                     : path.slice(1).charAt(0).toUpperCase() + path.slice(2)}
             </strong>
           </div>
-          <span className="facility-status">
-            <span className="online-dot" />
-            Shared workshop
-          </span>
+          {path === "/" ? (
+            <Link href="/new" className="button primary">
+              <Plus size={18} />
+              New part
+            </Link>
+          ) : (
+            <span className="facility-status">
+              <span className="online-dot" />
+              Shared workshop
+            </span>
+          )}
         </header>
         <main>
           {error && (
@@ -290,7 +297,12 @@ export default function Partbook() {
         </footer>
       </div>
       <nav className="mobile-bottom">
-        {[nav[1], { href: "/new", label: "New part", icon: Plus }, nav[2], nav[0]].map((n) => (
+        {[
+          nav[1],
+          { href: "/new", label: "New part", icon: Plus },
+          nav[2],
+          nav[0],
+        ].map((n) => (
           <Link
             key={n.href}
             href={n.href}
@@ -424,10 +436,6 @@ function ScanHome({
           </h1>
           <p>The latest revision is one scan away.</p>
         </div>
-        <Link href="#scan" className="button primary">
-          <ScanLine size={18} />
-          Scan part
-        </Link>
       </div>
       <div className="stats-grid">
         <Stat
