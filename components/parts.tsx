@@ -175,12 +175,25 @@ export function NewPart({ vendors, categories, reload }: Shared) {
           {matches.length > 0 && (
             <div className="duplicate-warning duplicate-part-warning">
               <strong>That part may already be in your inventory.</strong>
-              <p>Choose the existing part to log a new revision, or continue creating another part.</p>
+              <p>
+                Choose the existing part to log a new revision, or continue
+                creating another part.
+              </p>
               <div className="part-suggestions">
                 {matches.map((match) => (
-                  <button type="button" className="part-suggestion" key={match.id} onClick={() => router.push(`/parts/${match.partNumber}`)}>
-                    <span><strong>{match.partName}</strong><small className="mono">{match.partNumber}</small></span>
-                    <span className="version-badge">{match.current ? `V${match.current.revisionNum}` : "—"}</span>
+                  <button
+                    type="button"
+                    className="part-suggestion"
+                    key={match.id}
+                    onClick={() => router.push(`/parts/${match.partNumber}`)}
+                  >
+                    <span>
+                      <strong>{match.partName}</strong>
+                      <small className="mono">{match.partNumber}</small>
+                    </span>
+                    <span className="version-badge">
+                      {match.current ? `V${match.current.revisionNum}` : "—"}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -986,18 +999,17 @@ export function PrintLabel({
     if (!part) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/export/qr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [part.id] }),
-      });
+      const res = await fetch(
+        `/api/parts/${encodeURIComponent(part.partNumber)}/qr`,
+      );
       if (!res.ok) throw new Error((await res.json()).message);
       const url = URL.createObjectURL(await res.blob()),
         a = document.createElement("a");
       a.href = url;
-      a.download = `${number}-label.zip`;
+      a.download = `${part.partNumber}.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10000);
+      await post("export/printed", { ids: [part.id] });
       setMarked(true);
       reload();
     } catch (e) {
@@ -1064,7 +1076,7 @@ export function PrintLabel({
             disabled={busy || !!part.archivedAt}
           >
             <ArrowDownToLine size={17} />
-            {busy ? "Preparing…" : "Download QR"}
+            {busy ? "Preparing…" : "Download PNG"}
           </button>
           <button
             className="button primary"
