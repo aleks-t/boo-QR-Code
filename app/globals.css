@@ -1743,6 +1743,57 @@ summary:focus-visible {
 .history-list {
   padding: 25px;
 }
+.revision-history-panel {
+  padding: 24px;
+  margin-top: 20px;
+  margin-bottom: 15px;
+  scroll-margin-top: 90px;
+}
+.revision-history-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.revision-history-panel .section-heading > span {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.revision-history-panel > .muted {
+  font-size: 12px;
+  margin: 12px 0;
+}
+.revision-search {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+.revision-history-scroll {
+  max-height: min(480px, 55dvh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  border-top: 1px solid var(--border);
+  padding: 20px 8px;
+}
+.revision-history-scroll:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+.revision-history-link {
+  display: inline-block;
+  margin-top: 16px;
+}
+.revision-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.revision-count-link {
+  color: var(--green);
+  font-size: 12px;
+  text-decoration: underline;
+}
 .history-entry {
   position: relative;
   padding: 0 0 24px 25px;
@@ -2835,7 +2886,7 @@ summary:focus-visible {
   }
   .detail-actions {
     position: sticky;
-    bottom: 76px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
     margin: 20px -4px 0;
     padding: 12px 4px;
     background: #f5f7f6ed;
