@@ -362,11 +362,20 @@ function PartsTable({
                       <span className="category-badge">{p.category.name}</span>
                     </td>
                     <td data-label="Revision">
-                      <span className="version-badge">
-                        {p.current
-                          ? `V${p.current.revisionNum}`
-                          : "No active revision"}
-                      </span>
+                      <div className="revision-cell">
+                        <span className="version-badge">
+                          {p.current
+                            ? `V${p.current.revisionNum}`
+                            : "No active revision"}
+                        </span>
+                        <Link
+                          href={`/parts/${p.partNumber}#revision-history`}
+                          className="revision-count-link"
+                        >
+                          {p.revisions.length}{" "}
+                          {p.revisions.length === 1 ? "version" : "versions"}
+                        </Link>
+                      </div>
                     </td>
                     <td
                       data-label={labels ? "Label" : "Updated"}

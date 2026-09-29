@@ -221,8 +221,17 @@ export function NewPart({ vendors, categories, reload }: Shared) {
         />
         <label className="field">
           How many samples? <span className="optional">optional</span>
-          <input type="number" min={1} max={100} inputMode="numeric" value={sampleCount} onChange={(e) => setSampleCount(e.target.value)} />
-          <small className="field-help">Track each physical sample separately when you have more than one.</small>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            inputMode="numeric"
+            value={sampleCount}
+            onChange={(e) => setSampleCount(e.target.value)}
+          />
+          <small className="field-help">
+            Track each physical sample separately when you have more than one.
+          </small>
         </label>
         <details className="optional-note">
           <summary>
@@ -419,7 +428,18 @@ export function PartDetail({
     [busy, setBusy] = useState(false),
     [actionError, setActionError] = useState(""),
     [toast, setToast] = useState(""),
-    [restoreId, setRestoreId] = useState("");
+    [restoreId, setRestoreId] = useState(""),
+    [revisionSearch, setRevisionSearch] = useState("");
+  useEffect(() => {
+    setRevisionSearch("");
+  }, [number]);
+  useEffect(() => {
+    if (!part || window.location.hash !== "#revision-history") return;
+    const frame = requestAnimationFrame(() =>
+      document.getElementById("revision-history")?.scrollIntoView(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [part?.id]);
   if (error) return <Missing number={number} error={error} />;
   if (!part) return <Spinner />;
   const current = part.current,
@@ -429,6 +449,19 @@ export function PartDetail({
   const nextAfterVoid = voiding
     ? part.revisions.find((r) => !r.voided && r.id !== voiding.id)
     : null;
+  const query = revisionSearch.trim().toLowerCase();
+  const visibleRevisions = part.revisions.filter((r) => {
+    if (/^v?\d+$/.test(query))
+      return r.revisionNum === Number(query.replace(/^v/, ""));
+    return [
+      `V${r.revisionNum}`,
+      r.changeNote,
+      r.loggedBy,
+      r.voidReason || "",
+      date(r.createdAt),
+      r.voided ? "Voided" : r.id === current?.id ? "Current" : "Superseded",
+    ].some((value) => value.toLowerCase().includes(query));
+  });
   async function restore() {
     if (!part) return;
     setBusy(true);
@@ -527,8 +560,16 @@ export function PartDetail({
           )}
           <div className="permanent-note">
             <Tag size={16} />
-            The existing label is still correct.
+            {part.labelPrinted
+              ? "The existing label is still correct. Scanning opens the latest version."
+              : "No label export recorded. A permanent label opens the latest version."}
           </div>
+          <a
+            className="text-button revision-history-link"
+            href="#revision-history"
+          >
+            View all {part.revisions.length} versions
+          </a>
         </section>
         <section className="panel details-card">
           <h2>Part details</h2>
@@ -559,16 +600,43 @@ export function PartDetail({
           </dl>
         </section>
       </div>
-      <details className="panel history-panel">
-        <summary>
-          <span>
-            <History size={19} />
-            Revision history <small>{part.revisions.length} entries</small>
-          </span>
-          <ChevronDown size={18} />
-        </summary>
-        <div className="history-list">
-          {part.revisions.map((r) => (
+      <section
+        className="panel revision-history-panel"
+        id="revision-history"
+        aria-labelledby="revision-history-heading"
+      >
+        <div className="section-heading">
+          <h2 id="revision-history-heading">
+            <History size={19} /> Revision history
+          </h2>
+          <span>{part.revisions.length} versions</span>
+        </div>
+        <p className="muted">
+          All versions are kept here, newest first. Scroll to browse older
+          versions.
+        </p>
+        <label className="field revision-search">
+          Find a version
+          <input
+            type="search"
+            placeholder="Version number, change, person, or date…"
+            value={revisionSearch}
+            onChange={(e) => setRevisionSearch(e.target.value)}
+          />
+        </label>
+        <p className="muted" role="status">
+          Showing {visibleRevisions.length} of {part.revisions.length} versions
+        </p>
+        <div
+          className="history-list revision-history-scroll"
+          role="region"
+          aria-label="All revisions, newest first"
+          tabIndex={0}
+        >
+          {visibleRevisions.length === 0 && (
+            <p>No matching versions. Try another search.</p>
+          )}
+          {visibleRevisions.map((r) => (
             <div
               className={`history-entry ${r.voided ? "voided" : ""}`}
               key={r.id}
@@ -609,7 +677,7 @@ export function PartDetail({
             </div>
           ))}
         </div>
-      </details>
+      </section>
       <SamplesPanel
         part={part}
         onChange={(updated) => {
