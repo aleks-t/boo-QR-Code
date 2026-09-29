@@ -8,6 +8,7 @@ A mobile-first shared parts inventory, editable inventory sheet, permanent QR la
 - Create parts using vendor, name, and category; the server assigns the permanent ID and V1.
 - Edit names, vendors, and categories from the inventory sheet or part detail.
 - Review an edit history and restore previous details.
+- Browse all revisions in an always-visible, scrollable history. Search by version number (such as V4), note, person, or date; inventory and label rows link to the full version history. Scans continue to open the latest non-voided version.
 - Delete parts into Trash and restore them with their original number and history.
 - Log revisions through a confirmation gate, undo for 60 seconds, or void later with a reason.
 - Create vendors immediately, approve them later, or merge duplicates without renumbering parts.
@@ -112,3 +113,5 @@ npm run test:browser
 Automated checks cover PostgreSQL concurrency, transaction rollback, void numbering gaps, historical prefix allocation, notification dispatch with mocked transports, immutable QR payloads decoded from real PNGs, revision confirmation/undo, editable details and restoration, delete/restore, stale edit rejection, CSV/ZIP exports, unknown scans, and desktop/phone-sized layouts.
 
 A physical phone check is still required for camera permissions, actual printed-label scanning time, iPhone installed-app behavior, and real push/email delivery. Camera access on a phone requires the deployed HTTPS URL; an ordinary HTTP LAN URL won't work. Print Master column mapping needs verification with the label template and printer actually used in the workshop.
+
+The revision visibility regression test uses 100 simulated versions and intercepts every API call; it does not connect to a database. Run `npm run dev -- --port 3187`, then `npx playwright test tests/browser/revision-visibility.spec.ts`. It checks desktop/mobile scrolling, search, voided history, version-count links, and the mobile action buttons. These UI changes require no database migration or seed.
