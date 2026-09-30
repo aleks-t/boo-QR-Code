@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
-import { AppError, currentRevision, resolveCode } from "./domain";
+import { AppError, currentRevision, resolveCode, parseCode } from "./domain";
 export const partInclude = {
   samples: {
     include: { events: { orderBy: { createdAt: "desc" as const } } },
@@ -39,12 +39,23 @@ export async function retry<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 export async function findPart(number: string) {
+  const code = parseCode(number);
   const part = await db.part.findUnique({
     where: { partNumber: resolveCode(number) },
     include: partInclude,
   });
   if (!part) throw new AppError(`No part matches ${resolveCode(number)}.`, 404);
-  return present(part);
+  const sample =
+    code.sampleNumber === null
+      ? null
+      : part.samples.find((s) => s.sampleNumber === code.sampleNumber);
+  if (code.sampleNumber !== null && !sample)
+    throw new AppError(`No sample matches ${code.code}.`, 404);
+  return {
+    ...present(part),
+    scannedSampleId: sample?.id ?? null,
+    scannedRevisionNum: code.revisionNum,
+  };
 }
 export async function createPart(
   input: {
@@ -53,6 +64,8 @@ export async function createPart(
     categoryId: string;
     changeNote?: string;
     sampleCount?: number;
+    receivedOn?: string;
+    effectiveOn?: string;
   },
   user: { id: string; name: string },
 ) {
@@ -84,11 +97,16 @@ export async function createPart(
                 { length: input.sampleCount ?? 1 },
                 (_, i) => ({
                   sampleNumber: i + 1,
+                  revisionNum: 1,
+                  receivedOn: input.receivedOn
+                    ? new Date(input.receivedOn)
+                    : null,
                   events: {
                     create: {
                       status: "IN_HOUSE",
                       loggedBy: user.name,
                       note: "Sample created.",
+                      revisionNum: 1,
                     },
                   },
                 }),
@@ -97,6 +115,9 @@ export async function createPart(
             revisions: {
               create: {
                 revisionNum: 1,
+                effectiveOn: input.effectiveOn
+                  ? new Date(input.effectiveOn)
+                  : null,
                 changeNote: input.changeNote || "Initial release.",
                 loggedBy: user.name,
                 loggedById: user.id,
@@ -113,6 +134,7 @@ export async function logRevision(
   partId: string,
   changeNote: string,
   user: { id: string; name: string },
+  effectiveOn?: string,
 ) {
   return retry(() =>
     db.$transaction(async (tx) => {
@@ -136,6 +158,7 @@ export async function logRevision(
           partId,
           revisionNum: (max._max.revisionNum ?? 0) + 1,
           changeNote,
+          effectiveOn: effectiveOn ? new Date(effectiveOn) : null,
           loggedBy: user.name,
           loggedById: user.id,
         },

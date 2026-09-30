@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
   Box,
@@ -23,15 +22,19 @@ import {
 import {
   api,
   post,
-  saveFile,
   Part,
   Revision,
   Vendor,
   Category,
   date,
+  dateOnly,
+  today,
 } from "@/lib/types";
 import { similarCode } from "@/lib/domain";
 import { Combo, Modal, Notice, Spinner } from "./ui";
+import { LabelEditor } from "./label-editor";
+import { SamplesPanel } from "./samples";
+import { RevisionDateEditor } from "./revision-date";
 import { EditPart, Shared } from "./tables";
 function Back({
   href = "/inventory",
@@ -102,6 +105,7 @@ export function NewPart({ vendors, categories, reload }: Shared) {
     [category, setCategory] = useState(""),
     [name, setName] = useState(""),
     [sampleCount, setSampleCount] = useState("1"),
+    [receivedOn, setReceivedOn] = useState(today),
     [note, setNote] = useState(""),
     [adding, setAdding] = useState<"vendor" | "category" | null>(null),
     [localV, setLocalV] = useState<Vendor[]>([]),
@@ -152,6 +156,7 @@ export function NewPart({ vendors, categories, reload }: Shared) {
               partName: name,
               categoryId: category,
               sampleCount: Number(sampleCount),
+              receivedOn,
               ...(note.trim() ? { changeNote: note } : {}),
             });
             sessionStorage.setItem(`created:${part.partNumber}`, "true");
@@ -231,6 +236,18 @@ export function NewPart({ vendors, categories, reload }: Shared) {
           />
           <small className="field-help">
             Track each physical sample separately when you have more than one.
+          </small>
+        </label>
+        <label className="field">
+          Received on
+          <input
+            type="date"
+            required
+            value={receivedOn}
+            onChange={(e) => setReceivedOn(e.target.value)}
+          />
+          <small className="field-help">
+            When these samples actually arrived. You can enter an earlier date.
           </small>
         </label>
         <details className="optional-note">
@@ -429,14 +446,17 @@ export function PartDetail({
     [actionError, setActionError] = useState(""),
     [toast, setToast] = useState(""),
     [restoreId, setRestoreId] = useState(""),
-    [revisionSearch, setRevisionSearch] = useState("");
+    [revisionSearch, setRevisionSearch] = useState(""),
+    [dating, setDating] = useState<Revision | null>(null);
   useEffect(() => {
     setRevisionSearch("");
   }, [number]);
   useEffect(() => {
-    if (!part || window.location.hash !== "#revision-history") return;
+    const hash = window.location.hash;
+    if (!part || !/^#(?:revision-history|samples|sample-\d+)$/.test(hash))
+      return;
     const frame = requestAnimationFrame(() =>
-      document.getElementById("revision-history")?.scrollIntoView(),
+      document.getElementById(hash.slice(1))?.scrollIntoView(),
     );
     return () => cancelAnimationFrame(frame);
   }, [part?.id]);
@@ -459,6 +479,8 @@ export function PartDetail({
       r.loggedBy,
       r.voidReason || "",
       date(r.createdAt),
+      r.effectiveOn ? dateOnly(r.effectiveOn) : "",
+      r.effectiveOn?.slice(0, 10) || "",
       r.voided ? "Voided" : r.id === current?.id ? "Current" : "Superseded",
     ].some((value) => value.toLowerCase().includes(query));
   });
@@ -536,6 +558,48 @@ export function PartDetail({
         </div>
       )}
       {actionError && <Notice>{actionError}</Notice>}
+      {part.scannedSampleId &&
+        (() => {
+          const sample = part.samples.find(
+            (s) => s.id === part.scannedSampleId,
+          )!;
+          return (
+            <div className="scan-context" role="status">
+              <strong>
+                Scanned Sample {sample.sampleNumber} ·{" "}
+                {sample.revisionNum
+                  ? `V${sample.revisionNum}`
+                  : "Version not assigned"}
+              </strong>
+              <p>
+                This QR identifies this physical piece. The latest part version
+                is {current ? `V${current.revisionNum}` : "not set"}.
+              </p>
+              <a className="button" href={`#sample-${sample.sampleNumber}`}>
+                Go to this sample
+              </a>
+            </div>
+          );
+        })()}
+      {part.scannedRevisionNum && (
+        <div className="scan-context">
+          <strong>Scanned V{part.scannedRevisionNum} label</strong>
+          <p>
+            {part.revisions.some(
+              (r) => r.revisionNum === part.scannedRevisionNum,
+            )
+              ? "The latest part version is shown below. View revision history for this label’s version."
+              : "That version is not on record. The latest part version is shown below."}
+          </p>
+          <a
+            className="button"
+            href="#revision-history"
+            onClick={() => setRevisionSearch(`V${part.scannedRevisionNum}`)}
+          >
+            View label’s version
+          </a>
+        </div>
+      )}
       <div className="detail-grid">
         <section className="panel current-card">
           <div className="section-heading">
@@ -552,9 +616,18 @@ export function PartDetail({
           {current && (
             <>
               <p className="revision-byline">
-                V{current.revisionNum} logged {date(current.createdAt)} by{" "}
-                <strong>{current.loggedBy}</strong>
+                Revision date:{" "}
+                {current.effectiveOn
+                  ? dateOnly(current.effectiveOn)
+                  : "Not set"}
               </p>
+              <details className="sample-audit">
+                <summary>Logging details</summary>
+                <p className="revision-byline">
+                  V{current.revisionNum} logged {date(current.createdAt)} by{" "}
+                  <strong>{current.loggedBy}</strong>
+                </p>
+              </details>
               <blockquote>{current.changeNote}</blockquote>
             </>
           )}
@@ -655,25 +728,45 @@ export function PartDetail({
                   </span>
                 </strong>
                 <p className="history-meta">
-                  {date(r.createdAt)} · {r.loggedBy}
+                  Revision date:{" "}
+                  {r.effectiveOn ? dateOnly(r.effectiveOn) : "Not set"}
+                </p>
+                <p className="history-meta">
+                  Logged {date(r.createdAt)} · {r.loggedBy}
                 </p>
                 <p>{r.voided ? `Voided: ${r.voidReason}` : r.changeNote}</p>
                 {r.voided && (
                   <p className="original-note">Original note: {r.changeNote}</p>
                 )}
               </div>
-              {!r.voided && !part.archivedAt && (
-                <button
-                  className="text-button danger-text"
-                  onClick={() => {
-                    setReason("");
-                    setActionError("");
-                    setVoiding(r);
-                  }}
-                >
-                  Void
-                </button>
-              )}
+              <div className="revision-entry-actions">
+                {!r.voided && (
+                  <Link
+                    className="button small"
+                    href={`/parts/${part.partNumber}-V${r.revisionNum}/print`}
+                  >
+                    <Printer size={15} />
+                    Print V{r.revisionNum} label
+                  </Link>
+                )}
+                {!part.archivedAt && (
+                  <button className="button small" onClick={() => setDating(r)}>
+                    Edit date
+                  </button>
+                )}
+                {!r.voided && !part.archivedAt && (
+                  <button
+                    className="text-button danger-text"
+                    onClick={() => {
+                      setReason("");
+                      setActionError("");
+                      setVoiding(r);
+                    }}
+                  >
+                    Void
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -682,7 +775,6 @@ export function PartDetail({
         part={part}
         onChange={(updated) => {
           setPart(updated);
-          reload();
         }}
       />
       <details className="panel history-panel">
@@ -740,6 +832,18 @@ export function PartDetail({
             Log new revision
           </Link>
         </div>
+      )}
+      {dating && (
+        <RevisionDateEditor
+          part={part}
+          revision={dating}
+          onClose={() => setDating(null)}
+          onSaved={(updated) => {
+            setPart(updated);
+            setDating(null);
+            reload();
+          }}
+        />
       )}
       {editing && (
         <EditPart
@@ -864,110 +968,6 @@ export function PartDetail({
     </div>
   );
 }
-function SamplesPanel({
-  part,
-  onChange,
-}: {
-  part: Part;
-  onChange: (part: Part) => void;
-}) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const labels: Record<string, string> = {
-    IN_HOUSE: "In house",
-    SENT_OUT: "Sent out",
-    PASSED: "Passed",
-    FAILED: "Failed",
-    SENT_BACK: "Sent back",
-  };
-  return (
-    <section className="panel samples-panel">
-      <div className="section-heading">
-        <h2>
-          Samples <small>{part.samples.length} tracked</small>
-        </h2>
-        <span className="subtle-badge">OPTIONAL TRACKING</span>
-      </div>
-      <p className="muted sample-help">
-        These are separate physical samples of the same part. Update one when it
-        is sent out, passes, fails, or comes back.
-      </p>
-      <div className="samples-list">
-        {part.samples.map((sample) => (
-          <div className="sample-row" key={sample.id}>
-            <span className="sample-number">Sample {sample.sampleNumber}</span>
-            <select
-              aria-label={`Status for sample ${sample.sampleNumber}`}
-              value={sample.status}
-              disabled={busy === sample.id || !!part.archivedAt}
-              onChange={async (e) => {
-                setBusy(sample.id);
-                try {
-                  const updated = await api<Part>(`samples/${sample.id}`, {
-                    method: "PATCH",
-                    body: JSON.stringify({
-                      status: e.target.value,
-                      note: sample.note || undefined,
-                    }),
-                  });
-                  onChange({
-                    ...part,
-                    samples: part.samples.map((s) =>
-                      s.id === sample.id ? { ...s, ...updated } : s,
-                    ),
-                  });
-                } finally {
-                  setBusy(null);
-                }
-              }}
-            >
-              {Object.entries(labels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <input
-              aria-label={`Note for sample ${sample.sampleNumber}`}
-              placeholder="Optional note"
-              defaultValue={sample.note || ""}
-              disabled={!!part.archivedAt}
-              onBlur={async (e) => {
-                const value = e.target.value.trim();
-                if (value === (sample.note || "")) return;
-                setBusy(sample.id);
-                try {
-                  const updated = await api<Part>(`samples/${sample.id}`, {
-                    method: "PATCH",
-                    body: JSON.stringify({
-                      status: sample.status,
-                      note: value,
-                    }),
-                  });
-                  onChange({
-                    ...part,
-                    samples: part.samples.map((s) =>
-                      s.id === sample.id ? { ...s, ...updated } : s,
-                    ),
-                  });
-                } finally {
-                  setBusy(null);
-                }
-              }}
-            />
-            {sample.events?.find((event) => event.status === "SENT_BACK") && (
-              <small className="sample-event">
-                Sent back at V
-                {sample.events.find((event) => event.status === "SENT_BACK")
-                  ?.revisionNum ?? "—"}
-              </small>
-            )}
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export function RevisionForm({
   number,
   reload,
@@ -978,6 +978,7 @@ export function RevisionForm({
   const router = useRouter();
   const { part, error } = usePart(number);
   const [note, setNote] = useState(""),
+    [effectiveOn, setEffectiveOn] = useState(today),
     [busy, setBusy] = useState(false),
     [failure, setFailure] = useState("");
   if (error) return <Missing number={number} error={error} />;
@@ -995,7 +996,7 @@ export function RevisionForm({
             const result = await post<{
               revision: Revision;
               previous: Revision | null;
-            }>(`parts/${part.id}/revisions`, { changeNote: note });
+            }>(`parts/${part.id}/revisions`, { changeNote: note, effectiveOn });
             sessionStorage.setItem(
               `revision:${part.partNumber}`,
               JSON.stringify(result),
@@ -1032,7 +1033,24 @@ export function RevisionForm({
             <small>New version</small>
           </span>
         </div>
+        <p className="muted">
+          Existing samples keep their assigned versions. After saving, use Add
+          samples for physical pieces of this new version.
+        </p>
         {failure && <Notice>{failure}</Notice>}
+        <label className="field">
+          Revision date
+          <input
+            type="date"
+            required
+            value={effectiveOn}
+            onChange={(e) => setEffectiveOn(e.target.value)}
+          />
+          <small className="field-help">
+            When this revision took effect. Logging an earlier date still
+            creates the next version; sample received dates stay unchanged.
+          </small>
+        </label>
         <label className="field">
           What changed? <span className="required">required</span>
           <textarea
@@ -1125,7 +1143,10 @@ export function RevisionSuccess({
         )}
         <div className="info-strip">
           <Tag size={22} />
-          <p>The existing label is still correct. No reprint needed.</p>
+          <p>
+            Your permanent part label still works. Existing samples keep their
+            own versions and QR codes.
+          </p>
         </div>
         {failure && <Notice>{failure}</Notice>}
         {!!logged && seconds > 0 && !isVoided && (
@@ -1164,6 +1185,9 @@ export function RevisionSuccess({
           <Link className="button" href={`/parts/${number}`}>
             View part
           </Link>
+          <Link className="button" href={`/parts/${number}#samples`}>
+            Add or manage samples
+          </Link>
           <Link className="button primary" href="/">
             Scan another part
             <ArrowRight size={17} />
@@ -1181,133 +1205,19 @@ export function PrintLabel({
   reload: () => void;
 }) {
   const { part, error } = usePart(number);
-  const [created, setCreated] = useState(false),
-    [busy, setBusy] = useState(false),
-    [failure, setFailure] = useState(""),
-    [marked, setMarked] = useState(false);
+  const [created, setCreated] = useState(false);
   useEffect(() => {
     setCreated(sessionStorage.getItem(`created:${number}`) === "true");
   }, [number]);
   if (error) return <Missing number={number} error={error} />;
   if (!part) return <Spinner />;
-  async function download() {
-    if (!part) return;
-    setBusy(true);
-    try {
-      const res = await fetch(
-        `/api/parts/${encodeURIComponent(part.partNumber)}/qr`,
-      );
-      if (!res.ok) throw new Error((await res.json()).message);
-      const saved = await saveFile(await res.blob(), `${part.partNumber}.png`);
-      if (saved) {
-        await post("export/printed", { ids: [part.id] });
-        setMarked(true);
-        reload();
-      }
-    } catch (e) {
-      setFailure((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
-    <div className="narrow-page print-page">
-      <div className="no-print">
-        <Back href={`/parts/${number}`}>Back to part</Back>
-        <div className="page-heading">
-          <div>
-            <span className="eyebrow">
-              {created
-                ? "YOUR PART IS IN THE BOOK"
-                : "A FRESH LABEL, THE SAME PART"}
-            </span>
-            <h1>
-              {created ? (
-                <>
-                  Created: <span className="mono">{part.partNumber}</span>
-                </>
-              ) : (
-                "Print a label."
-              )}
-            </h1>
-            <p>{created ? `${part.partName}, revision 1` : part.partName}</p>
-            {created && <p>This part needs a physical label.</p>}
-          </div>
-        </div>
-      </div>
-      <section className="panel print-panel">
-        <div className="physical-label">
-          <img
-            src={`/api/parts/${part.partNumber}/qr`}
-            width={230}
-            height={230}
-            alt={`QR label encoding ${part.partNumber}`}
-          />
-          <strong className="mono">{part.partNumber}</strong>
-          <span>{part.partName}</span>
-        </div>
-        <p className="no-print muted">
-          The QR contains <strong className="mono">{part.partNumber}</strong>{" "}
-          only.
-          <br />
-          It stays correct through every revision.
-        </p>
-      </section>
-      <div className="no-print">
-        {failure && <Notice>{failure}</Notice>}
-        {marked && (
-          <div className="success-toast">
-            <Check size={18} />
-            Label recorded as exported.
-          </div>
-        )}
-        <div className="form-actions">
-          <button
-            className="button"
-            onClick={download}
-            disabled={busy || !!part.archivedAt}
-          >
-            <ArrowDownToLine size={17} />
-            {busy ? "Preparing…" : "Download PNG"}
-          </button>
-          <button
-            className="button primary"
-            disabled={!!part.archivedAt}
-            onClick={() => window.print()}
-          >
-            <Printer size={17} />
-            Print label
-          </button>
-        </div>
-        <div className="print-done">
-          <button
-            className="text-button"
-            disabled={marked || busy || !!part.archivedAt}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await post("export/printed", { ids: [part.id] });
-                setMarked(true);
-                reload();
-              } catch (e) {
-                setFailure((e as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            I printed this label
-          </button>
-          <Link
-            className="button"
-            href={`/parts/${number}`}
-            onClick={() => sessionStorage.removeItem(`created:${number}`)}
-          >
-            Done
-            <Check size={16} />
-          </Link>
-        </div>
-      </div>
-    </div>
+    <LabelEditor
+      key={number}
+      part={part}
+      number={number}
+      created={created}
+      reload={reload}
+    />
   );
 }

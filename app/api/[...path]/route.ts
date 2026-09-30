@@ -13,7 +13,13 @@ import {
   signIn,
   signOut,
 } from "@/lib/auth";
-import { AppError, csvCell } from "@/lib/domain";
+import {
+  AppError,
+  csvCell,
+  calendarDate,
+  parseCode,
+  resolveCode,
+} from "@/lib/domain";
 import {
   createPart,
   findPart,
@@ -22,11 +28,17 @@ import {
   present,
   voidRevision,
 } from "@/lib/parts";
+import {
+  updateSample,
+  markSamplePrinted,
+  receiveDelivery,
+} from "@/lib/samples";
 import { deliverNotifications } from "@/lib/notifications";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const text = z.string().trim().min(1).max(200);
 const note = z.string().trim().min(1, "Tell us what changed.").max(4000);
+const day = z.string().refine(calendarDate, "Enter a valid date (YYYY-MM-DD).");
 const email = z.union([z.email().max(254), z.literal("")]).optional();
 const partFields = { partName: text, vendorId: text, categoryId: text };
 async function body(req: Request) {
@@ -53,9 +65,16 @@ async function handle(
       return NextResponse.json({ ok: true });
     }
     if (path[0] === "vendors" && path.length === 2 && method === "DELETE") {
-      const vendor = await db.vendor.findUnique({ where: { id: path[1] }, include: { _count: { select: { parts: true } } } });
+      const vendor = await db.vendor.findUnique({
+        where: { id: path[1] },
+        include: { _count: { select: { parts: true } } },
+      });
       if (!vendor) throw new AppError("This vendor could not be found.", 404);
-      if (vendor._count.parts > 0) throw new AppError("This vendor has parts attached. Merge it into another vendor instead so their IDs and history stay valid.", 409);
+      if (vendor._count.parts > 0)
+        throw new AppError(
+          "This vendor has parts attached. Merge it into another vendor instead so their IDs and history stay valid.",
+          409,
+        );
       await db.vendor.delete({ where: { id: vendor.id } });
       return NextResponse.json({ ok: true });
     }
@@ -140,7 +159,15 @@ async function handle(
     if (route === "stats" && method === "GET") {
       const [parts, labels, pending, changes] = await Promise.all([
         db.part.count({ where: { archivedAt: null } }),
-        db.part.count({ where: { labelPrinted: false, archivedAt: null } }),
+        db.part.count({
+          where: {
+            archivedAt: null,
+            OR: [
+              { labelPrinted: false },
+              { samples: { some: { labelPrinted: false } } },
+            ],
+          },
+        }),
         db.vendor.count({ where: { approved: false } }),
         db.revision.count({
           where: {
@@ -163,7 +190,7 @@ async function handle(
                   { partName: { contains: q, mode: "insensitive" } },
                   {
                     partNumber: {
-                      contains: q.toUpperCase().replace(/-V\d+$/, ""),
+                      contains: resolveCode(q),
                       mode: "insensitive",
                     },
                   },
@@ -177,7 +204,12 @@ async function handle(
             ? { categoryId: url.searchParams.get("category")! }
             : {},
           url.searchParams.get("unprinted") === "true"
-            ? { labelPrinted: false }
+            ? {
+                OR: [
+                  { labelPrinted: false },
+                  { samples: { some: { labelPrinted: false } } },
+                ],
+              }
             : {},
         ],
       };
@@ -205,50 +237,124 @@ async function handle(
           ...partFields,
           changeNote: note.optional(),
           sampleCount: z.coerce.number().int().min(1).max(100).default(1),
+          receivedOn: day.optional(),
+          effectiveOn: day.optional(),
         })
         .strict()
         .parse(await body(req));
       return NextResponse.json(await createPart(input, user), { status: 201 });
     }
-    if (path[0] === "samples" && path.length === 2 && method === "PATCH") {
+    if (
+      path[0] === "parts" &&
+      path[2] === "samples" &&
+      path.length === 3 &&
+      method === "POST"
+    ) {
       const input = z
         .object({
-          status: z.enum([
-            "IN_HOUSE",
-            "SENT_OUT",
-            "PASSED",
-            "FAILED",
-            "SENT_BACK",
-          ]),
+          requestId: z.uuid(),
+          count: z.number().int().min(1).max(100),
+          revisionNum: z.number().int().positive().nullable(),
+          receivedOn: day,
           note: z.string().trim().max(4000).optional(),
         })
         .strict()
         .parse(await body(req));
+      await receiveDelivery(
+        {
+          requestId: input.requestId,
+          receivedOn: input.receivedOn,
+          lines: [
+            {
+              partId: path[1],
+              count: input.count,
+              revisionNum: input.revisionNum,
+              note: input.note,
+            },
+          ],
+        },
+        user,
+      );
+      const part = await db.part.findUniqueOrThrow({
+        where: { id: path[1] },
+        include: partInclude,
+      });
+      return NextResponse.json(present(part), { status: 201 });
+    }
+    if (path[0] === "samples" && path.length === 2 && method === "PATCH") {
+      const input = z
+        .object({
+          updatedAt: z.iso.datetime(),
+          status: z
+            .enum(["IN_HOUSE", "SENT_OUT", "PASSED", "FAILED", "SENT_BACK"])
+            .optional(),
+          note: z.string().trim().max(4000).optional(),
+          revisionNum: z.number().int().positive().nullable().optional(),
+          receivedOn: day.nullable().optional(),
+        })
+        .strict()
+        .parse(await body(req));
+      return NextResponse.json(await updateSample(path[1], input, user));
+    }
+    if (
+      path[0] === "samples" &&
+      path[2] === "printed" &&
+      path.length === 3 &&
+      method === "POST"
+    ) {
+      const input = z
+        .object({ updatedAt: z.iso.datetime() })
+        .strict()
+        .parse(await body(req));
+      return NextResponse.json(
+        await markSamplePrinted(path[1], input.updatedAt),
+      );
+    }
+    if (path[0] === "revisions" && path.length === 2 && method === "PATCH") {
+      const input = z
+        .object({ effectiveOn: day.nullable(), updatedAt: z.iso.datetime() })
+        .strict()
+        .parse(await body(req));
       const result = await db.$transaction(async (tx) => {
-        const sample = await tx.sample.findUnique({
+        const revision = await tx.revision.findUnique({
           where: { id: path[1] },
-          include: { part: { include: { revisions: true } } },
+          include: { part: true },
         });
-        if (!sample) throw new AppError("This sample could not be found.", 404);
-        const current =
-          sample.part.revisions
-            .filter((r) => !r.voided)
-            .sort((a, b) => b.revisionNum - a.revisionNum)[0]?.revisionNum ??
-          null;
-        await tx.sample.update({
-          where: { id: sample.id },
-          data: { status: input.status, note: input.note || null },
-        });
-        await tx.sampleEvent.create({
+        if (!revision)
+          throw new AppError("This revision could not be found.", 404);
+        if (revision.part.archivedAt)
+          throw new AppError(
+            "Restore this part before editing its dates.",
+            409,
+          );
+        const changed = await tx.revision.updateMany({
+          where: { id: revision.id, updatedAt: new Date(input.updatedAt) },
           data: {
-            sampleId: sample.id,
-            status: input.status,
-            note: input.note || null,
-            revisionNum: current,
-            loggedBy: user.name,
+            effectiveOn: input.effectiveOn ? new Date(input.effectiveOn) : null,
           },
         });
-        return tx.sample.findUniqueOrThrow({ where: { id: sample.id }, include: { events: { orderBy: { createdAt: "desc" } } } });
+        if (!changed.count)
+          throw new AppError(
+            "This revision changed. Refresh before editing its date.",
+            409,
+          );
+        const previousDate =
+          revision.effectiveOn?.toISOString().slice(0, 10) ?? "Not set";
+        await tx.partChange.create({
+          data: {
+            partId: revision.partId,
+            loggedBy: user.name,
+            action: `V${revision.revisionNum} revision date: ${previousDate} → ${input.effectiveOn || "Not set"}`,
+            before: { effectiveOn: previousDate },
+            after: { effectiveOn: input.effectiveOn },
+          },
+        });
+        return present(
+          await tx.part.findUniqueOrThrow({
+            where: { id: revision.partId },
+            include: partInclude,
+          }),
+        );
       });
       return NextResponse.json(result);
     }
@@ -396,10 +502,15 @@ async function handle(
       method === "POST"
     ) {
       const input = z
-        .object({ changeNote: note })
+        .object({ changeNote: note, effectiveOn: day.optional() })
         .strict()
         .parse(await body(req));
-      const result = await logRevision(path[1], input.changeNote, user);
+      const result = await logRevision(
+        path[1],
+        input.changeNote,
+        user,
+        input.effectiveOn,
+      );
       after(deliverNotifications);
       return NextResponse.json(result, { status: 201 });
     }
@@ -410,9 +521,24 @@ async function handle(
       method === "GET"
     ) {
       const part = await findPart(path[1]);
+      const code = parseCode(path[1]);
+      if (
+        code.revisionNum !== null &&
+        !part.revisions.some(
+          (r) => r.revisionNum === code.revisionNum && !r.voided,
+        )
+      )
+        throw new AppError(
+          "This revision is missing or voided; choose another label.",
+          404,
+        );
+      const payload =
+        code.sampleNumber !== null || code.revisionNum !== null
+          ? code.code
+          : part.partNumber;
       if (url.searchParams.get("format") === "svg")
         return new Response(
-          await QRCode.toString(part.partNumber, {
+          await QRCode.toString(payload, {
             type: "svg",
             margin: 4,
             errorCorrectionLevel: "M",
@@ -420,13 +546,13 @@ async function handle(
           {
             headers: {
               "Content-Type": "image/svg+xml",
-              "Cache-Control": "private, max-age=3600",
+              "Cache-Control": "no-store",
             },
           },
         );
       return new Response(
         new Uint8Array(
-          await QRCode.toBuffer(part.partNumber, {
+          await QRCode.toBuffer(payload, {
             width: 600,
             margin: 4,
             errorCorrectionLevel: "M",
@@ -435,7 +561,7 @@ async function handle(
         {
           headers: {
             "Content-Type": "image/png",
-            "Cache-Control": "private, max-age=3600",
+            "Cache-Control": "no-store",
           },
         },
       );

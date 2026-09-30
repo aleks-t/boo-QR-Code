@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, ScanLine, CameraOff } from "lucide-react";
 import type { Html5Qrcode } from "html5-qrcode";
-import { resolveCode } from "@/lib/domain";
+import { normalizeCode } from "@/lib/domain";
 export default function Scanner({
   onScan,
 }: {
@@ -56,7 +56,7 @@ export default function Scanner({
         (decoded) => {
           if (found || !mounted.current) return;
           found = true;
-          const code = resolveCode(decoded);
+          const code = normalizeCode(decoded);
           void instance
             .stop()
             .catch(() => {})

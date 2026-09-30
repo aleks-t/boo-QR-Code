@@ -66,7 +66,9 @@ test("new part → revision → undo → edit → delete → restore → export"
     page.getByRole("heading", { name: `${name} is now on version 2.` }),
   ).toBeVisible();
   await expect(
-    page.getByText("The existing label is still correct. No reprint needed."),
+    page.getByText(
+      "Your permanent part label still works. Existing samples keep their own versions and QR codes.",
+    ),
   ).toBeVisible();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(

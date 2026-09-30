@@ -53,6 +53,9 @@ model Sample {
   id String @id @default(cuid())
   partId String
   sampleNumber Int
+  revisionNum Int?
+  receivedOn DateTime? @db.Date
+  labelPrinted Boolean @default(false)
   status SampleStatus @default(IN_HOUSE)
   note String?
   updatedAt DateTime @updatedAt
@@ -69,16 +72,25 @@ model SampleEvent {
   status SampleStatus
   note String?
   revisionNum Int?
+  details Json?
   loggedBy String
   createdAt DateTime @default(now())
   sample Sample @relation(fields: [sampleId], references: [id])
   @@index([sampleId, createdAt])
+}
+model Receipt {
+  id String @id
+  fingerprint String
+  result Json
+  createdAt DateTime @default(now())
 }
 model Revision {
   id String @id @default(cuid())
   partId String
   revisionNum Int
   changeNote String
+  effectiveOn DateTime? @db.Date
+  updatedAt DateTime @updatedAt
   loggedBy String
   loggedById String?
   voided Boolean @default(false)

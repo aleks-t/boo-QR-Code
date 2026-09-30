@@ -3173,3 +3173,234 @@ summary:focus-visible {
     min-height: 44px;
   }
 }
+
+/* Physical sample tracking: large targets, explicit save actions. */
+.sample-tree .section-heading {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.sample-filters {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+.sample-version-group {
+  margin-top: 24px;
+}
+.sample-version-group h3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 15px;
+}
+.sample-version-group h3 span {
+  color: #65776b;
+  font-size: 12px;
+  font-weight: 400;
+}
+.sample-branches {
+  margin: 14px 0 0 8px;
+  padding-left: 18px;
+  border-left: 2px solid #dce8dd;
+}
+.sample-card {
+  padding: 18px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  scroll-margin-top: 90px;
+}
+.sample-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.sample-card h4,
+.sample-card h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.sample-code {
+  font-size: 12px;
+  color: #65776b;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.sample-received {
+  font-size: 14px;
+  margin-top: 10px;
+}
+.sample-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  margin-top: 12px;
+}
+.sample-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.sample-card-actions small {
+  font-size: 12px;
+  color: #65776b;
+}
+.sample-audit {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 8px;
+}
+.sample-audit summary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+  min-height: 44px;
+  font-size: 13px;
+}
+.sample-audit-event {
+  margin: 12px 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.sample-audit-event small {
+  display: block;
+  color: #65776b;
+  margin: 4px 0;
+}
+.sample-form-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.sample-form-fields small {
+  color: #65776b;
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+.scanned-sample {
+  border: 2px solid var(--green);
+  background: #f4faf6;
+}
+.scan-context {
+  padding: 20px;
+  border: 1px solid #9cc6b0;
+  background: #f2faf5;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+.scan-context p {
+  font-size: 14px;
+  margin: 8px 0 12px;
+}
+.history-entry > .revision-entry-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 250px;
+  justify-content: flex-end;
+}
+.revision-entry-actions .text-button {
+  min-height: 44px;
+  padding: 8px 12px;
+}
+.physical-label {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .sample-filters {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .sample-branches {
+    padding-left: 10px;
+    margin-left: 0;
+  }
+  .sample-card {
+    padding: 14px;
+  }
+  .sample-card-actions .button {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+  .sample-card-actions small {
+    flex-basis: 100%;
+  }
+  .sample-tree .button {
+    min-height: 44px;
+  }
+  .sample-tree .section-heading > .button {
+    width: 100%;
+    justify-content: center;
+  }
+  .history-entry {
+    flex-wrap: wrap;
+  }
+  .history-entry > .revision-entry-actions {
+    flex: 1 0 100%;
+    max-width: none;
+    justify-content: flex-start;
+  }
+  .revision-entry-actions .button {
+    min-height: 44px;
+  }
+  .sample-form-fields input,
+  .sample-form-fields select,
+  .sample-form-fields textarea,
+  .sample-filters input,
+  .sample-filters select,
+  .print-page select {
+    font-size: 16px;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .detail-actions {
+    position: static;
+  }
+}
+.label-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.label-summary > a {
+  color: var(--green);
+  text-decoration: underline;
+  font-size: 12px;
+}
+#samples {
+  scroll-margin-top: 90px;
+}
+.sample-form-fields select,
+.sample-filters select,
+.print-page select {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+}
+.modal:has(.sample-form-fields) {
+  overflow-y: auto;
+}
+@media (max-width: 760px) {
+  .modal:has(.sample-form-fields) .form-actions {
+    position: sticky;
+    bottom: -21px;
+    padding: 12px 0;
+    background: white;
+    border-top: 1px solid var(--border);
+    z-index: 2;
+  }
+}

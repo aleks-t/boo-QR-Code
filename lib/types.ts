@@ -14,6 +14,8 @@ export type Revision = {
   voided: boolean;
   voidReason: string | null;
   createdAt: string;
+  effectiveOn: string | null;
+  updatedAt: string;
 };
 export type Change = {
   id: string;
@@ -36,16 +38,23 @@ export type SampleEvent = {
   revisionNum: number | null;
   loggedBy: string;
   createdAt: string;
+  details?: { action?: string; before?: unknown; after?: unknown } | null;
 };
 export type Sample = {
   id: string;
   sampleNumber: number;
+  revisionNum: number | null;
+  receivedOn: string | null;
+  labelPrinted: boolean;
+  createdAt: string;
   status: SampleEvent["status"];
   note: string | null;
   updatedAt: string;
   events: SampleEvent[];
 };
 export type Part = {
+  scannedSampleId?: string | null;
+  scannedRevisionNum?: number | null;
   archivedAt: string | null;
   changes: Change[];
   samples: Sample[];
@@ -84,7 +93,10 @@ export async function api<T = unknown>(
     headers: { "Content-Type": "application/json", ...options?.headers },
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Please try again.");
+  if (!res.ok)
+    throw Object.assign(new Error(data.message || "Please try again."), {
+      status: res.status,
+    });
   return data;
 }
 export const post = <T = unknown>(path: string, data: unknown = {}) =>
@@ -95,6 +107,20 @@ export function date(value: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+export function dateOnly(value: string) {
+  return new Date(value.slice(0, 10) + "T12:00:00").toLocaleDateString(
+    undefined,
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    },
+  );
+}
+export function today() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 // iOS Safari doesn't save `<a download>` blob links to disk — it opens a
 // preview instead. The share sheet's "Save Image"/"Save to Files" does, so

@@ -1,8 +1,35 @@
+export function normalizeCode(value: string) {
+  let code = value.trim();
+  if (/^https?:\/\//i.test(code)) {
+    try {
+      const path = new URL(code).pathname;
+      const match = path.match(/^\/parts\/([^/]+)\/?$/);
+      if (match) code = decodeURIComponent(match[1]);
+    } catch {
+      /* Invalid URLs follow the usual not-found path. */
+    }
+  }
+  return code.toUpperCase();
+}
+export function parseCode(value: string) {
+  const code = normalizeCode(value);
+  const match = code.match(/^(.*)-(V|S)([1-9]\d*)$/);
+  return {
+    code,
+    partNumber: match ? match[1] : code,
+    revisionNum: match?.[2] === "V" ? Number(match[3]) : null,
+    sampleNumber: match?.[2] === "S" ? Number(match[3]) : null,
+  };
+}
 export function resolveCode(value: string) {
-  return value
-    .trim()
-    .toUpperCase()
-    .replace(/-V\d+$/, "");
+  return parseCode(value).partNumber;
+}
+export function calendarDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return (
+    Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
+  );
 }
 export function currentRevision<
   T extends { voided: boolean; revisionNum: number },

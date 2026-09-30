@@ -175,10 +175,12 @@ function PartsTable({
           <span className="eyebrow">
             {labels ? "READY FOR THE REAL WORLD" : "YOUR WORKSHOP, AT A GLANCE"}
           </span>
-          <h1>{labels ? "One part. One lasting label." : "Your inventory."}</h1>
+          <h1>
+            {labels ? "Labels for every part and sample." : "Your inventory."}
+          </h1>
           <p>
             {labels
-              ? "Print once. Your labels stay correct through every revision."
+              ? "Open a part to print individual sample or version labels. Bulk exports below create permanent part labels."
               : "A shared sheet for your parts. Easy to find, easy to keep up to date."}
           </p>
         </div>
@@ -382,12 +384,22 @@ function PartsTable({
                       className="table-date"
                     >
                       {labels ? (
-                        <span
-                          className={`label-state ${p.labelPrinted ? "exported" : ""}`}
-                        >
-                          {p.labelPrinted ? <Check size={13} /> : <span />}
-                          {p.labelPrinted ? "Exported" : "Needs label"}
-                        </span>
+                        <div className="label-summary">
+                          <span
+                            className={`label-state ${p.labelPrinted ? "exported" : ""}`}
+                          >
+                            {p.labelPrinted ? <Check size={13} /> : <span />}
+                            {p.labelPrinted
+                              ? "Part label exported"
+                              : "Part label needed"}
+                          </span>
+                          {p.samples.some((s) => !s.labelPrinted) && (
+                            <Link href={`/parts/${p.partNumber}#samples`}>
+                              {p.samples.filter((s) => !s.labelPrinted).length}{" "}
+                              sample labels waiting
+                            </Link>
+                          )}
+                        </div>
                       ) : (
                         date(p.updatedAt)
                       )}
@@ -469,7 +481,7 @@ function PartsTable({
                 : archived
                   ? "Deleted parts appear here, ready to restore."
                   : labels && unprinted
-                    ? "Every part has been exported at least once."
+                    ? "All part and sample labels have been exported."
                     : "Create your first part to get started."}
             </p>
             {!labels && !archived && !q && !vendor && !category && (
@@ -483,7 +495,7 @@ function PartsTable({
         <div className="table-footer">
           <span>
             {labels
-              ? "QR codes contain only the permanent part number."
+              ? "Bulk QR exports contain permanent part numbers. Individual sample labels are available inside each part."
               : archived
                 ? "Restoring a part keeps its original number and full history."
                 : "Names, vendors, and categories are editable. Part numbers stay permanent."}

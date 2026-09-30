@@ -80,8 +80,8 @@ This installation intentionally has one owner record (`Owner`) and no login flow
 
 ## Identity and recovery guarantees
 
-- QR payload: `ACM-0043`; display ID: `ACM-0043-V3`, computed on read.
-- The scan resolver normalizes case/whitespace and removes one trailing `-V\d+` suffix.
+- Permanent part QR: `ACM-0043`; sample QR: `ACM-0043-S2`; version QR: `ACM-0043-V3`. The latest display ID is computed on read.
+- The scan resolver normalizes case/whitespace, resolves the permanent part, and preserves an optional sample or version suffix as scan context. Existing permanent labels continue to work.
 - Sequence assignment uses the maximum for the **historical identifier prefix**, including trashed parts. Using the editable current vendor would regress after a merge or supplier change. This is a deliberate correction to the original assignment algorithm.
 - Revision assignment uses the maximum over **all** rows, including voided ones. Unique constraints reject races and the transaction retries once.
 - Part creation and initial revision are one transaction. Revision creation and notification queueing are one transaction.
@@ -114,4 +114,20 @@ Automated checks cover PostgreSQL concurrency, transaction rollback, void number
 
 A physical phone check is still required for camera permissions, actual printed-label scanning time, iPhone installed-app behavior, and real push/email delivery. Camera access on a phone requires the deployed HTTPS URL; an ordinary HTTP LAN URL won't work. Print Master column mapping needs verification with the label template and printer actually used in the workshop.
 
-The revision visibility regression test uses 100 simulated versions and intercepts every API call; it does not connect to a database. Run `npm run dev -- --port 3187`, then `npx playwright test tests/browser/revision-visibility.spec.ts`. It checks desktop/mobile scrolling, search, voided history, version-count links, and the mobile action buttons. These UI changes require no database migration or seed.
+The revision visibility regression test uses 100 simulated versions and intercepts every API call; it does not connect to a database. Run `npm run dev -- --port 3187`, then `npx playwright test tests/browser/revision-visibility.spec.ts`. It checks desktop/mobile scrolling, search, voided history, version-count links, and the mobile action buttons. That original history-only change required no migration. The newer sample-label and date features below include an additive migration.
+
+## Sample labels and actual dates (September 30 update)
+
+The part page groups physical samples by version. Use **Add samples**, choose the version, enter how many more physical pieces arrived and their **Received on** date. The form shows the existing, additional and resulting counts. Repeat for another version; use another part record for a different part type. There is no separate receiving screen.
+
+- Every new sample automatically has a unique permanent identifier, e.g. `SRG-0001-S2`. Print or download its label from its card now or later. PNG downloads include the readable part name, part number, version and sample number.
+- Multiple samples can share V4. Logging V5 does not change their assigned versions, identifiers, notes or status. Correct a sample’s version with **Edit details**; its QR remains unchanged. Reprint if the human-readable version text changes.
+- Sample scans identify the exact physical piece and show its version, with the latest part revision still visible. Legacy part labels continue to open the latest revision. Version history has **Print V3 label**, etc.; these identify the version rather than one physical piece.
+- **Received on** is the actual editable arrival date. **Revision date** is when the version took effect. Original server-created timestamps stay in history. Date corrections do not change version numbering or the latest-version rule.
+- Existing samples retain their data. Their previously unrecorded version and received date remain unset; assign these manually rather than guessing. Status events keep their original revision references.
+- Sample edits require the original `updatedAt` value; stale writes fail. Add-sample requests carry a unique request ID so retrying the same save returns the same samples.
+- Labels waiting includes parts with unexported sample labels. Bulk CSV/ZIP exports remain permanent part labels. Use individual sample cards for sample labels.
+
+Deploy the full updated source, including `prisma/schema.prisma` and `prisma/migrations/202609300001_sample_labels_dates/migration.sql`, to the existing app with the same `DATABASE_URL`. The existing `railway.json` runs `prisma migrate deploy`. This migration adds columns and a request-tracking table; it does not delete or renumber inventory. Do not reset or seed the live database.
+
+Run `node scripts/test-sample-workflow.mjs` for isolated verification. It creates temporary local databases, checks migration preservation on old-style records, then tests sample identity, concurrent additions, retry protection, backdated edits, real downloaded QR decoding, and desktop/iPhone-sized workflows with 20 samples. It explicitly uses temporary local database URLs and does not connect to the existing inventory database. Physical iPhone camera, Safari sharing and printer checks still need the deployed app and hardware.
